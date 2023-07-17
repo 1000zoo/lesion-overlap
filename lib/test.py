@@ -55,3 +55,6 @@ if __name__ == "__main__":
     centerlines = ([50, 48, 48, 49, 48, 49, 50, 51, 52, 54, 55, 55, 56, 56, 56, 56], [48, 51, 52, 57, 55, 59, 62, 63, 65, 68, 75, 77, 79, 81, 83, 85], [41, 40, 40, 38, 38, 38, 38, 39, 40, 40, 39, 40, 39, 37, 37, 37])
     tx, ty, tz = centerlines
     centerlines = [(i, j, k) for i, j, k in zip(tx, ty, tz)]
+
+    with open("lib/center-planes.json", encoding='UTF-8') as f:
+        file = json.loads(f)

@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import math
+import json
 
 from collections import defaultdict, deque
 from random import shuffle
@@ -38,10 +39,10 @@ class Node:
     
 
 class Tract:
-    def __init__(self, nii, start=None, end=None):
+    def __init__(self, nii, num):
         self.nii = nii
-        self.start = start
-        self.end = end
+        self.num = num
+        self.load()
         self.tensor = []
         self.graph = []
         self.X, self.Y, self.Z = [], [], []
@@ -50,6 +51,11 @@ class Tract:
         self.set_connection()
         self.com = get_COM(self.X, self.Y, self.Z)
         self.plimit = self.get_index_limit()
+
+    def load(self):
+        with open('lib/end-points.json', encoding='UTF-8') as f:
+            pp = json.loads(f.read())
+            self.start, self.end = eval(pp[str(self.num)])
 
 
     def get_index_limit(self):
