@@ -56,7 +56,7 @@ class Tract:
         return max(max(self.X) - min(self.X), max(self.Y) - min(self.Y), max(self.Z) - min(self.Z)) + 1
     
 
-    def plot(self, title=".", p=True):
+    def plot(self, title="."):
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
 
@@ -64,12 +64,13 @@ class Tract:
         ax = fig.subplots(subplot_kw={"projection": "3d"})
 
         ax.scatter(self.X, self.Y, self.Z, linewidth=0, alpha=0.4)
-        if self.start and self.end:
-            sx, sy, sz = self.get_centerline()
-            ax.scatter(sx, sy, sz, linewidth=1, alpha=0.8, c='r')
-            short = self.short_path()
-            sx, sy, sz = [c[0] for c in short], [c[1] for c in short], [c[2] for c in short]
-            ax.scatter(sx, sy, sz, linewidth=1, alpha=0.8, c='y')
+        
+        planes = self.get_center_planes()
+
+        for plane in planes:
+            x, y, z = plane
+            ax.scatter(x, y, z, linewidths=1, c='r')
+
 
         ax.set_xlim([xcom - _max, xcom + _max])
         ax.set_ylim([ycom - _max, ycom + _max])
@@ -116,6 +117,25 @@ class Tract:
                 node.set_neighbor(neighbors)
 
 
+    def get_cross_section_area(self, point, vector):
+        x0, y0, z0 = point
+        iv, jv, kv = vector
+        d = -1 * (iv * x0 + jv * y0 + kv * z0)
+        equation = lambda _x, _y, _z: abs(iv * _x + jv * _y + kv * _z + d)
+        distance = lambda _x, _y, _z: math.sqrt(((_x - x0) ** 2) + (_y - y0) ** 2 + (_z - z0) ** 2)
+        tx, ty, tz = [], [], []
+
+        area = 0
+        for x, y, z in self.tensor:
+            if equation(x, y, z) < RES and distance(x, y, z) < DISMAX:
+                area += 1
+                tx.append(x)
+                ty.append(y)
+                tz.append(z)
+
+        return area, (tx, ty, tz)
+
+
     def min_area_plane_center(self, x0, y0, z0, vector):
         lin = [x for x in np.linspace(-0.5, 0.5, 5)]
         uv = [add_vector(norm(vector), (i, j, k)) for i in lin for j in lin for k in lin]
@@ -123,31 +143,32 @@ class Tract:
         uv = list(set(uv))
         xin, yin, zin = [], [], []
         min_area = float('inf')
-        min_nv = None
 
         for i, j, k in uv:
-            area = 0
-            d = -1 * (i * x0 + j * y0 + k * z0)
-            equation = lambda _x, _y, _z: abs(i * _x + j * _y + k * _z + d)
-            distance = lambda _x, _y, _z: math.sqrt(((_x - x0) ** 2) + (_y - y0) ** 2 + (_z - z0) ** 2)
-            tx, ty, tz = [], [], []
-
-            for x, y, z in self.tensor:
-                res = equation(x, y, z)
-                if res < RES and distance(x, y, z) < DISMAX:
-                    area += 1
-                    tx.append(x)
-                    ty.append(y)
-                    tz.append(z)
+            area, p = self.get_cross_section_area((x0, y0, z0), (i, j, k))
 
             if area < min_area:
                 min_area = area
-                min_nv = (i, j, k)
-                xin = tx
-                yin = ty
-                zin = tz
+                xin, yin, zin = p
 
         return get_COM(xin, yin, zin)
+    
+
+    def get_center_planes(self):
+        centerlines = self.get_centerline()
+        tx, ty, tz = centerlines
+        centerlines = [(i, j, k) for i, j, k in zip(tx, ty, tz)]
+
+        planes = [] # [[[x1, x2, ...], [y1, y2, ...], [z1, z2, ...]], [...], ...]
+        
+        for i in range(len(centerlines) - 1):
+            point = centerlines[i]
+            vector = sub_vector(centerlines[i], centerlines[i + 1])
+            _, plane = self.get_cross_section_area(point, vector)
+            planes.append(plane)
+
+        return planes
+
 
     def get_centerline(self, interval=1):
         short = self.short_path()
@@ -199,7 +220,6 @@ class Tract:
 
         for i in range(0, len(history[end]), interval):
             short_cut.append(history[end][i])
-
 
         return [(node.x, node.y, node.z) for node in short_cut]
 
