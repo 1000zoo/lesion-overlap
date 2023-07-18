@@ -6,6 +6,7 @@ class Lesion:
         self.name = name
         self.load()
         
+
     def load(self):
         with open("data.json", 'r', encoding="UTF-8") as f:
             self.planes_data = json.load(f)
@@ -13,6 +14,8 @@ class Lesion:
 
     def overlap_detection(self):
         results = dict()
+        info = {"max": 0}
+        
         for i in self.planes_data:
             total_overlap = 0
             planes = eval(self.planes_data[i])
@@ -22,15 +25,24 @@ class Lesion:
                 for x, y, z in plane:
                     overlap += 1 if self.nii[x][y][z] != 0 else 0
                 
-                temp[str(index)] = overlap / len(planes)
+                if overlap == 0 or len(plane) == 0:
+                    continue
+                
+                ratio = overlap / len(plane)
+                ratio = int(ratio * 1000) / 1000
+                temp[str(index)] = ratio
+                if ratio > info["max"]:
+                    info = {}
+                    info["max"] = ratio
+                    info["tract"] = i
+                    info["plane"] = index
+                    
                 total_overlap += overlap
 
             results[i] = temp
         
-        return results
+        return results, info
     
-    def overlap_part(self):
-        overlap = self.overlap_detection()
 
 if __name__ == "__main__":
     l = Lesion(None, "1")
