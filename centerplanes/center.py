@@ -161,7 +161,7 @@ class Tract:
     
 
     def get_center_planes(self):
-        centerlines = self.get_centerline()
+        centerlines = self.get_centerline()     # 중심라인 구하는 부분
         tx, ty, tz = centerlines
         centerlines = [(i, j, k) for i, j, k in zip(tx, ty, tz)]
 
