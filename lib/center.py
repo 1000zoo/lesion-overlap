@@ -166,14 +166,25 @@ class Tract:
         centerlines = [(i, j, k) for i, j, k in zip(tx, ty, tz)]
 
         planes = [] # [[[x1, x2, ...], [y1, y2, ...], [z1, z2, ...]], [...], ...]
-        
+
         for i in range(len(centerlines) - 1):
             point = centerlines[i]
             vector = sub_vector(centerlines[i], centerlines[i + 1])
             _, plane = self.get_cross_section_area(point, vector)
             planes.append(plane)
 
+        self.save_planes(planes)
+
         return planes
+
+
+    def save_planes(self, planes):
+        planes = plane_list_to_tuple(planes)
+        with open("data.json", 'r', encoding="UTF-8") as f:
+            temp = json.load(f)
+        with open("data.json", 'w', encoding="UTF-8") as f:
+            temp[str(self.num)] = str(planes)
+            json.dump(temp, f, ensure_ascii=False, indent='\t')
 
 
     def get_centerline(self, interval=1):
@@ -229,7 +240,15 @@ class Tract:
 
         return [(node.x, node.y, node.z) for node in short_cut]
 
-                
+
+def plane_list_to_tuple(planes):
+    tup_list = []
+    for plane in planes:
+        x, y, z = plane
+        tup_list.append([(i, j, k) for i, j, k in zip(x, y, z)])
+    
+    return tup_list
+
 
 def dist(n1: Node, n2: Node):
     x = msq(n1.x, n2.x)
