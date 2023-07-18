@@ -53,7 +53,7 @@ class Tract:
         self.plimit = self.get_index_limit()
 
     def load(self):
-        with open('lib/end-points.json', encoding='UTF-8') as f:
+        with open('centerplanes/end-points.json', encoding='UTF-8') as f:
             pp = json.loads(f.read())
             self.start, self.end = eval(pp[str(self.num)])
 
