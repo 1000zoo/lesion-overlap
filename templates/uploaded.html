@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+    <title>File Uploaded</title>
+    <style>
+        /* 사용자 지정 스타일을 추가하세요 */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        li ul {
+            margin-top: 5px;
+            margin-left: 20px;
+        }
+        p {
+            margin: 5px 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .button-container {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .button-container .submit-button {
+            padding: 8px 16px;
+            background-color: #337ab7;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .button-container .submit-button:hover {
+            background-color: #286090;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="button-container">
+            <form method="get" action="/">
+                <input type="submit" class="submit-button" value="OK">
+            </form>
+        </div>
+        <h1>File uploaded successfully</h1>
+        <h2>Result:</h2>
+        <ul>
+            {% for key, value in result.items() if value %}
+                <li><strong>Tract Number: {{ key }}</strong></li>
+                <ul>
+                    {% for inner_key, inner_value in value.items() if inner_value %}
+                        <li>Plane Number {{ inner_key }}: {{ inner_value }}</li>
+                    {% endfor %}
+                </ul>
+            {% endfor %}
+        </ul>
+        <h2>Info:</h2>
+        <p><strong>Max:</strong> {{ info.max }}</p>
+        <p><strong>Tract:</strong> {{ info.tract }}</p>
+        <p><strong>Plane:</strong> {{ info.plane }}</p>
+    </div>
+</body>
+</html>

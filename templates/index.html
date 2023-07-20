@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+    <title>Upload a File - Doctors Only</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 20px;
+        }
+        #container {
+        max-width: 90vw;
+        margin: 0 auto;
+        background-color: #fff;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        font-size: 24px;
+        margin: 0 0 20px;
+    }
+
+    #error {
+        color: red;
+        margin: 10px 0;
+    }
+
+    #drop_zone {
+        width: 85vw;
+        height: 40vh;
+        border: 2px dashed #ccc;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 18px;
+        color: #555;
+    }
+
+    #file_name {
+        margin-top: 10px;
+    }
+
+    button {
+        padding: 10px 20px;
+        background-color: #4CAF50;
+        color: #fff;
+        border: none;
+        border-radius: 3px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    #button_container {
+            text-align: right;
+        }
+    button:hover {
+        background-color: #45a049;
+    }
+</style>
+<script>
+    var selectedFile;
+
+    function dragOverHandler(ev) {
+        ev.preventDefault();
+    }
+
+    function dropHandler(ev) {
+        ev.preventDefault();
+
+        if (ev.dataTransfer.items) {
+            for (var i = 0; i < ev.dataTransfer.items.length; i++) {
+                if (ev.dataTransfer.items[i].kind === 'file') {
+                    selectedFile = ev.dataTransfer.items[i].getAsFile();
+                    document.getElementById('file_name').textContent = selectedFile.name;
+                }
+            }
+        } else {
+            for (var i = 0; i < ev.dataTransfer.files.length; i++) {
+                selectedFile = ev.dataTransfer.files[i];
+                document.getElementById('file_name').textContent = selectedFile.name;
+            }
+        }
+    }
+
+    function chooseFile(fileInput) {
+        selectedFile = fileInput.files[0];
+        document.getElementById('file_name').textContent = selectedFile.name;
+    }
+
+    function uploadFile() {
+        if (!selectedFile) {
+            document.getElementById('error').textContent = 'No file selected';
+            return;
+        }
+
+        var fileExtension = selectedFile.name.split('.').pop().toLowerCase();
+        if (fileExtension !== 'nii' && fileExtension !== 'gz') {
+            document.getElementById('error').textContent = 'Allowed file types are .nii';
+            return;
+        }
+
+        var url = '/';  // Server-side endpoint
+        var xhr = new XMLHttpRequest();
+        var formData = new FormData();
+
+        xhr.open('POST', url, true);
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                var response = JSON.parse(xhr.responseText);
+                if (response.redirect) {
+                    window.location.href = response.redirect;
+                } else if (response.error) {
+                    document.getElementById('error').textContent = response.error;
+                }
+            }
+        };
+
+        formData.append('file', selectedFile);
+        xhr.send(formData);
+    }
+</script>
+</head>
+<body>
+    <div id="container">
+        <h1>Upload a File - Doctors Only</h1>
+        <p id="error"></p>
+        <div id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+            <span>Drag & Drop files here</span>
+        </div>
+        <div id="button_container">
+            <input type="file" id="file" name="file" onchange="chooseFile(this)">
+            <p id="file_name"></p>
+            <button onclick="uploadFile()">Upload</button>
+        </div>
+    </div>
+</body>
+</html>
