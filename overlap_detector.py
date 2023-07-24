@@ -6,15 +6,6 @@ import nibabel as nib
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = './'
 app.secret_key = os.urandom(16) 
-"""
-            filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-            file.save(filename)
-            nii = nib.load(filename).get_fdata()
-            print(nii)
-            os.remove(filename)
-            time.sleep(1)
-            return redirect(url_for('uploaded_file'))
-"""
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
