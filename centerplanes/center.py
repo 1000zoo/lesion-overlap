@@ -9,7 +9,7 @@ from random import shuffle
 from copy import copy
 from queue import PriorityQueue
 
-RES = 1.53
+RES = 3
 DISMAX = 10
 
 class Node:
@@ -57,6 +57,11 @@ class Tract:
             pp = json.loads(f.read())
             self.start, self.end = eval(pp[str(self.num)])
 
+        with open('centerplanes/marked-points/2mm-15.json', encoding='UTF-8') as f:
+            mp = json.loads(f.read())
+            mp = [list(map(int, t)) for t in mp]
+            self.marked_points = mp
+
 
     def get_index_limit(self):
         return max(max(self.X) - min(self.X), max(self.Y) - min(self.Y), max(self.Z) - min(self.Z)) + 1
@@ -66,21 +71,30 @@ class Tract:
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
 
+        xx, yy, zz = [p[0] for p in self.marked_points], [p[1] for p in self.marked_points], [p[2] for p in self.marked_points]
+        cx, cy, cz = self.get_centerline()
+
         fig = plt.figure()
         ax = fig.subplots(subplot_kw={"projection": "3d"})
+        ax.scatter(self.X, self.Y, self.Z, linewidth=0, alpha=0.3, label="tracts")
+        ax.scatter(xx, yy, zz, c='r', label="marked points")
+        ax.scatter(cx, cy, cz, c='black', label="center lines")
 
-        ax.scatter(self.X, self.Y, self.Z, linewidth=0, alpha=0.4)
-        
-        planes = self.get_center_planes()
+        ax.legend()
+        # planes = self.get_center_planes()
 
-        for plane in planes:
-            x, y, z = plane
-            ax.scatter(x, y, z, linewidths=1, c='r')
+        # for plane in planes:
+        #     x, y, z = plane
+        #     ax.scatter(x, y, z, linewidths=1, c='r')
 
 
         ax.set_xlim([xcom - _max, xcom + _max])
         ax.set_ylim([ycom - _max, ycom + _max])
         ax.set_zlim([zcom - _max, zcom + _max])
+
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("z")
 
         plt.title(title)
         plt.show()
@@ -152,7 +166,6 @@ class Tract:
 
         for i, j, k in uv:
             area, p = self.get_cross_section_area((x0, y0, z0), (i, j, k))
-
             if area < min_area:
                 min_area = area
                 xin, yin, zin = p
@@ -173,7 +186,7 @@ class Tract:
             _, plane = self.get_cross_section_area(point, vector)
             planes.append(plane)
 
-        self.save_planes(planes)
+        # self.save_planes(planes)
 
         return planes
 
@@ -188,7 +201,8 @@ class Tract:
 
 
     def get_centerline(self, interval=1):
-        short = self.short_path()
+        # short = self.short_path() ## <= 이 부분을 저장된 점들로 대체
+        short = self.marked_points
         curr = short.pop(0)
         centers = [curr]
 
@@ -205,7 +219,6 @@ class Tract:
             
         # return [center[0] for center in rc], [center[1] for center in rc], [center[2] for center in rc]
         return [center[0] for center in centers], [center[1] for center in centers], [center[2] for center in centers]
-
 
 
     def short_path(self, interval=5):
