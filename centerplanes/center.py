@@ -3,14 +3,16 @@ import matplotlib.pyplot as plt
 import random
 import math
 import json
+import os
 
 from collections import defaultdict, deque
 from random import shuffle
 from copy import copy
 from queue import PriorityQueue
 
-RES = 3
+RES = 1.5
 DISMAX = 10
+POINTS_PATH = "centerplanes/marked-points/"
 
 class Node:
     def __init__(self, points: tuple):
@@ -56,8 +58,10 @@ class Tract:
         with open('centerplanes/end-points.json', encoding='UTF-8') as f:
             pp = json.loads(f.read())
             self.start, self.end = eval(pp[str(self.num)])
-
-        with open('centerplanes/marked-points/2mm-15.json', encoding='UTF-8') as f:
+        
+        marked = f"2mm-{self.num}.json"
+        assert marked in os.listdir(POINTS_PATH)
+        with open(os.path.join(POINTS_PATH, marked), encoding='UTF-8') as f:
             mp = json.loads(f.read())
             mp = [list(map(int, t)) for t in mp]
             self.marked_points = mp
@@ -77,15 +81,15 @@ class Tract:
         fig = plt.figure()
         ax = fig.subplots(subplot_kw={"projection": "3d"})
         ax.scatter(self.X, self.Y, self.Z, linewidth=0, alpha=0.3, label="tracts")
-        ax.scatter(xx, yy, zz, c='r', label="marked points")
+        # ax.scatter(xx, yy, zz, c='r', label="marked points")
         ax.scatter(cx, cy, cz, c='black', label="center lines")
 
-        ax.legend()
         # planes = self.get_center_planes()
 
-        # for plane in planes:
+        # for i, plane in enumerate(planes):
         #     x, y, z = plane
-        #     ax.scatter(x, y, z, linewidths=1, c='r')
+        #     ax.scatter(x, y, z, linewidths=1, label=str(i))
+        ax.legend()
 
 
         ax.set_xlim([xcom - _max, xcom + _max])
@@ -201,7 +205,6 @@ class Tract:
 
 
     def get_centerline(self, interval=1):
-        # short = self.short_path() ## <= 이 부분을 저장된 점들로 대체
         short = self.marked_points
         curr = short.pop(0)
         centers = [curr]
