@@ -1,44 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import random
 import math
 import json
 import os
 
-from collections import defaultdict, deque
-from random import shuffle
-from copy import copy
-from queue import PriorityQueue
+RES = 2.5
+POINTS_PATH = "/mnt/nvme1n1/0728-thr25-1mm"
 
-RES = 1.5
-DISMAX = 10
-POINTS_PATH = "centerplanes/marked-points/"
-
-class Node:
-    def __init__(self, points: tuple):
-        x, y, z = points
-        self.x = x
-        self.y = y
-        self.z = z
-        self.points = points
-        self.neighbors = []
-        
-
-    def __str__(self) -> str:
-        return f"Node: ({self.x}, {self.y}, {self.z})"
-    
-    def get_points(self):
-        return self.points
-    
-    def add_neighbor(self, node):
-        self.neighbors.append(node)
-
-    def set_neighbor(self, neighbors):
-        self.neighbors = neighbors
-
-    def is_surface(self):
-        return len(self.neighbors) < 23
-    
 
 class Tract:
     def __init__(self, nii, num):
@@ -46,20 +14,13 @@ class Tract:
         self.num = num
         self.load()
         self.tensor = []
-        self.graph = []
         self.X, self.Y, self.Z = [], [], []
-        self.pnmap = defaultdict(Node)
-        self.set_graph()
-        self.set_connection()
+        self.set_tensor()
         self.com = get_COM(self.X, self.Y, self.Z)
         self.plimit = self.get_index_limit()
 
-    def load(self):
-        with open('centerplanes/end-points.json', encoding='UTF-8') as f:
-            pp = json.loads(f.read())
-            self.start, self.end = eval(pp[str(self.num)])
-        
-        marked = f"2mm-{self.num}.json"
+    def load(self):        
+        marked = f"{self.num}.json"
         assert marked in os.listdir(POINTS_PATH)
         with open(os.path.join(POINTS_PATH, marked), encoding='UTF-8') as f:
             mp = json.loads(f.read())
@@ -75,20 +36,20 @@ class Tract:
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
 
-        xx, yy, zz = [p[0] for p in self.marked_points], [p[1] for p in self.marked_points], [p[2] for p in self.marked_points]
-        cx, cy, cz = self.get_centerline()
+        # xx, yy, zz = [p[0] for p in self.marked_points], [p[1] for p in self.marked_points], [p[2] for p in self.marked_points]
+        # cx, cy, cz = self.get_centerline()
 
         fig = plt.figure()
         ax = fig.subplots(subplot_kw={"projection": "3d"})
-        ax.scatter(self.X, self.Y, self.Z, linewidth=0, alpha=0.3, label="tracts")
+        ax.scatter(self.X, self.Y, self.Z, linewidth=0, alpha=0.1, label="tracts")
         # ax.scatter(xx, yy, zz, c='r', label="marked points")
-        ax.scatter(cx, cy, cz, c='black', label="center lines")
+        # ax.scatter(cx, cy, cz, c='black', label="center lines")
 
-        # planes = self.get_center_planes()
+        planes = self.get_center_planes()
 
-        # for i, plane in enumerate(planes):
-        #     x, y, z = plane
-        #     ax.scatter(x, y, z, linewidths=1, label=str(i))
+        for i, plane in enumerate(planes):
+            x, y, z = plane
+            ax.scatter(x, y, z, linewidths=1, label=str(i))
         ax.legend()
 
 
@@ -105,16 +66,12 @@ class Tract:
         plt.close()
 
 
-    def set_graph(self):
+    def set_tensor(self):
         for i, x in enumerate(self.nii):
             for j, y in enumerate(x):
                 for k, z in enumerate(y):
-                    if z == 1.0:
+                    if z == self.num:
                         self.tensor.append((i, j, k))
-                        temp = Node((i, j, k))
-                        self.graph.append(temp)
-                        self.pnmap[(i, j, k)] = temp
-        
         
         for tensor in self.tensor:
             _x, _y, _z = tensor
@@ -123,35 +80,16 @@ class Tract:
             self.Z.append(_z)
 
 
-    def set_connection(self):
-        unit = [-1, 0, 1]
-        uv = [(i, j, k) for i in unit for j in unit for k in unit if (not i == j == k == 0)]
-
-        for x, y, z in self.tensor:
-            node = self.pnmap[(x, y, z)]
-            neighbors = []
-
-            for i, j, k in uv:
-                dx, dy, dz = x + i, y + j, z + k
-
-                if (dx, dy, dz) in self.tensor:
-                    neighbor = self.pnmap[(dx, dy, dz)]
-                    neighbors.append(neighbor)
-
-                node.set_neighbor(neighbors)
-
-
     def get_cross_section_area(self, point, vector):
         x0, y0, z0 = point
         iv, jv, kv = vector
         d = -1 * (iv * x0 + jv * y0 + kv * z0)
         equation = lambda _x, _y, _z: abs(iv * _x + jv * _y + kv * _z + d)
-        distance = lambda _x, _y, _z: math.sqrt(((_x - x0) ** 2) + (_y - y0) ** 2 + (_z - z0) ** 2)
         tx, ty, tz = [], [], []
 
         area = 0
         for x, y, z in self.tensor:
-            if equation(x, y, z) < RES and distance(x, y, z) < DISMAX:
+            if equation(x, y, z) < RES:
                 area += 1
                 tx.append(x)
                 ty.append(y)
@@ -180,7 +118,7 @@ class Tract:
     def get_center_planes(self):
         centerlines = self.get_centerline()     # 중심라인 구하는 부분
         tx, ty, tz = centerlines
-        centerlines = [(i, j, k) for i, j, k in zip(tx, ty, tz)]
+        centerlines = [(i, j, k) for i, j, k in zip(tx, ty, tz)]    # 계산 형식에 맞게 변경
 
         planes = [] # [[[x1, x2, ...], [y1, y2, ...], [z1, z2, ...]], [...], ...]
 
@@ -205,56 +143,22 @@ class Tract:
 
 
     def get_centerline(self, interval=1):
-        short = self.marked_points
-        curr = short.pop(0)
+        marked = self.marked_points
+        curr = marked.pop(0)
         centers = [curr]
 
-        for i, xyz in enumerate(short):
+        for i, xyz in enumerate(marked):
             x, y, z = xyz
             vector = sub_vector(curr, xyz)
             centers.append(self.min_area_plane_center(x, y, z, vector))
             curr = xyz
 
-        centers.append(self.end)
         # rc = []
         # for i in range(0, len(centers), interval):
         #     rc.append(centers[i])
             
         # return [center[0] for center in rc], [center[1] for center in rc], [center[2] for center in rc]
         return [center[0] for center in centers], [center[1] for center in centers], [center[2] for center in centers]
-
-
-    def short_path(self, interval=5):
-        start, end = self.pnmap[self.start], self.pnmap[self.end]
-
-        q = deque()
-        visited = set()
-        history = defaultdict(list)
-        last_node = None
-        q.append(start)
-
-        while q:
-            curr = q.popleft()
-            curr_history = history[curr]
-            curr_history.append(curr)
-            if curr == end:
-                break
-            for node in curr.neighbors:
-                if not node in visited:
-                    q.append(node)
-                    visited.add(node)
-                    history[node] = curr_history + [node]
-                    last_node = node
-
-        if end not in visited:
-            history[end] = history[last_node] + [end]
-
-        short_cut = []
-
-        for i in range(0, len(history[end]), interval):
-            short_cut.append(history[end][i])
-
-        return [(node.x, node.y, node.z) for node in short_cut]
 
 
 def plane_list_to_tuple(planes):
@@ -264,27 +168,6 @@ def plane_list_to_tuple(planes):
         tup_list.append([(i, j, k) for i, j, k in zip(x, y, z)])
     
     return tup_list
-
-
-def dist(n1: Node, n2: Node):
-    x = msq(n1.x, n2.x)
-    y = msq(n1.y, n2.y)
-    z = msq(n1.z, n2.z)
-    return math.sqrt(x + y + z)
-
-def msq(x1, x2):
-    return (x1 - x2) ** 2
-
-def get_vectors(points):
-    assert len(points) > 1
-    vectors = []
-
-    for i in range(len(points) - 1):
-        p1 = points[i]
-        p2 = points[i + 1]
-        vectors.append(sub_vector(p2, p1))
-
-    return vectors
 
 
 def sub_vector(t1, t2):
