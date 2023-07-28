@@ -17,16 +17,13 @@ def each_tract_files(s=1, e=20):
         except AssertionError as err:
             print(f"{err} => {i}")
 
-def atlas_file(s=1, e=20):
+def atlas_file(s=1, e=2):
     PATH = "/home/ni3/Desktop/prog/WMTA/WMTA/JHU/JHU-ICBM-tracts-maxprob-thr25-1mm.nii.gz"
     atlas = nib.load(PATH).get_fdata()
     print(atlas.shape)
     for i in range(s, e):
-        try:
-            t = Tract(atlas, i)
-            t.plot()
-        except:
-            print("ee")
+        t = Tract(atlas, i)
+        t.plot()
     
 
 if __name__ == "__main__":
