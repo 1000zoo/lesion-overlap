@@ -10,9 +10,9 @@ from random import shuffle
 from copy import copy
 from queue import PriorityQueue
 
-RES = 1.5
+RES = 2.5
 DISMAX = 10
-POINTS_PATH = "centerplanes/marked-points/"
+POINTS_PATH = "/mnt/nvme1n1/0727-thr25-2mm"
 
 class Node:
     def __init__(self, points: tuple):
@@ -44,7 +44,7 @@ class Tract:
     def __init__(self, nii, num):
         self.nii = nii
         self.num = num
-        self.load()
+        # self.load()
         self.tensor = []
         self.graph = []
         self.X, self.Y, self.Z = [], [], []
@@ -59,7 +59,7 @@ class Tract:
             pp = json.loads(f.read())
             self.start, self.end = eval(pp[str(self.num)])
         
-        marked = f"2mm-{self.num}.json"
+        marked = f"{self.num}.json"
         assert marked in os.listdir(POINTS_PATH)
         with open(os.path.join(POINTS_PATH, marked), encoding='UTF-8') as f:
             mp = json.loads(f.read())
@@ -75,14 +75,14 @@ class Tract:
         _max = self.plimit / 2
         xcom, ycom, zcom = self.com
 
-        xx, yy, zz = [p[0] for p in self.marked_points], [p[1] for p in self.marked_points], [p[2] for p in self.marked_points]
-        cx, cy, cz = self.get_centerline()
+        # xx, yy, zz = [p[0] for p in self.marked_points], [p[1] for p in self.marked_points], [p[2] for p in self.marked_points]
+        # cx, cy, cz = self.get_centerline()
 
         fig = plt.figure()
         ax = fig.subplots(subplot_kw={"projection": "3d"})
         ax.scatter(self.X, self.Y, self.Z, linewidth=0, alpha=0.3, label="tracts")
         # ax.scatter(xx, yy, zz, c='r', label="marked points")
-        ax.scatter(cx, cy, cz, c='black', label="center lines")
+        # ax.scatter(cx, cy, cz, c='black', label="center lines")
 
         # planes = self.get_center_planes()
 
@@ -109,7 +109,7 @@ class Tract:
         for i, x in enumerate(self.nii):
             for j, y in enumerate(x):
                 for k, z in enumerate(y):
-                    if z == 1.0:
+                    if z == self.num:
                         self.tensor.append((i, j, k))
                         temp = Node((i, j, k))
                         self.graph.append(temp)
@@ -224,39 +224,6 @@ class Tract:
         return [center[0] for center in centers], [center[1] for center in centers], [center[2] for center in centers]
 
 
-    def short_path(self, interval=5):
-        start, end = self.pnmap[self.start], self.pnmap[self.end]
-
-        q = deque()
-        visited = set()
-        history = defaultdict(list)
-        last_node = None
-        q.append(start)
-
-        while q:
-            curr = q.popleft()
-            curr_history = history[curr]
-            curr_history.append(curr)
-            if curr == end:
-                break
-            for node in curr.neighbors:
-                if not node in visited:
-                    q.append(node)
-                    visited.add(node)
-                    history[node] = curr_history + [node]
-                    last_node = node
-
-        if end not in visited:
-            history[end] = history[last_node] + [end]
-
-        short_cut = []
-
-        for i in range(0, len(history[end]), interval):
-            short_cut.append(history[end][i])
-
-        return [(node.x, node.y, node.z) for node in short_cut]
-
-
 def plane_list_to_tuple(planes):
     tup_list = []
     for plane in planes:
@@ -264,27 +231,6 @@ def plane_list_to_tuple(planes):
         tup_list.append([(i, j, k) for i, j, k in zip(x, y, z)])
     
     return tup_list
-
-
-def dist(n1: Node, n2: Node):
-    x = msq(n1.x, n2.x)
-    y = msq(n1.y, n2.y)
-    z = msq(n1.z, n2.z)
-    return math.sqrt(x + y + z)
-
-def msq(x1, x2):
-    return (x1 - x2) ** 2
-
-def get_vectors(points):
-    assert len(points) > 1
-    vectors = []
-
-    for i in range(len(points) - 1):
-        p1 = points[i]
-        p2 = points[i + 1]
-        vectors.append(sub_vector(p2, p1))
-
-    return vectors
 
 
 def sub_vector(t1, t2):
