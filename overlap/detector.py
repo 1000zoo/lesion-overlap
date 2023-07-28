@@ -11,7 +11,9 @@ class Lesion:
         with open("data.json", 'r', encoding="UTF-8") as f:
             self.planes_data = json.load(f)
 
-
+    ## overlap 부분 계산
+    ## results => {'tract 번호': {'평면 번호': ratio, ...}, ...}
+    ## info => {'max': '최대 ratio', '가장 많이 overlap된 트랙': '트랙번호', '가장 많이 Overlap 된 평면': '평면번호'} 
     def overlap_detection(self):
         results = dict()
         info = {"max": 0}
