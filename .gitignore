@@ -3,3 +3,6 @@ test.py
 marked-points/
 .idea/
 
+test/
+*.nii
+data.json

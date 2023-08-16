@@ -1,201 +1,94 @@
+# written by Jiwoo Chun, at 2023-07-29
+# modified with numpy by Cheol E. Han at 2023-08-02 (supported by chat-GPT)
 import numpy as np
 import matplotlib.pyplot as plt
-import math
 import json
-import os
 
 RES = 2.5
-POINTS_PATH = "/mnt/nvme1n1/0728-thr25-1mm"
-
+INTERVAL = 5
 
 class Tract:
     def __init__(self, nii, num):
         self.nii = nii
         self.num = num
-        self.load()
-        self.tensor = []
-        self.X, self.Y, self.Z = [], [], []
-        self.set_tensor()
-        self.com = get_COM(self.X, self.Y, self.Z)
-        self.plimit = self.get_index_limit()
+        self.tensor = np.argwhere(self.nii == self.num)
+        self.centerline = None
+        self.center_plane = []
 
-    def load(self):        
-        marked = f"{self.num}.json"
-        assert marked in os.listdir(POINTS_PATH)
-        with open(os.path.join(POINTS_PATH, marked), encoding='UTF-8') as f:
+    def load_marked_point(self, filename):
+        with open(filename, encoding='UTF-8') as f:
             mp = json.loads(f.read())
-            mp = [list(map(int, t)) for t in mp]
-            self.marked_points = mp
-
-
-    def get_index_limit(self):
-        return max(max(self.X) - min(self.X), max(self.Y) - min(self.Y), max(self.Z) - min(self.Z)) + 1
-    
+            self.marked_points = np.array(mp, dtype=int)
 
     def plot(self, title="."):
-        _max = self.plimit / 2
-        xcom, ycom, zcom = self.com
-
-        # xx, yy, zz = [p[0] for p in self.marked_points], [p[1] for p in self.marked_points], [p[2] for p in self.marked_points]
-        # cx, cy, cz = self.get_centerline()
-
         fig = plt.figure()
         ax = fig.subplots(subplot_kw={"projection": "3d"})
-        ax.scatter(self.X, self.Y, self.Z, linewidth=0, alpha=0.1, label="tracts")
-        # ax.scatter(xx, yy, zz, c='r', label="marked points")
-        # ax.scatter(cx, cy, cz, c='black', label="center lines")
-
-        planes = self.get_center_planes()
-
-        for i, plane in enumerate(planes):
-            x, y, z = plane
-            ax.scatter(x, y, z, linewidths=1, label=str(i))
+        ax.scatter(self.tensor[:, 0], self.tensor[:, 1], self.tensor[:, 2], linewidth=0, alpha=0.1, label="tracts")
+        # ax.scatter(self.marked_points[:,0], self.marked_points[:,1], self.marked_points[:,2], c='r', label="marked points")
+        ax.plot(self.centerline[:,0], self.centerline[:,1], self.centerline[:,2], color='red', marker='x', markersize=5, label="center lines")
+        for i, plane in enumerate(self.center_planes):
+            ax.scatter(plane[:,0],plane[:,1],plane[:,2], linewidths=1, label=str(i))
         ax.legend()
-
-
-        ax.set_xlim([xcom - _max, xcom + _max])
-        ax.set_ylim([ycom - _max, ycom + _max])
-        ax.set_zlim([zcom - _max, zcom + _max])
-
+        ax.set_xlim([min(self.tensor[:, 0]), max(self.tensor[:, 0])])
+        ax.set_ylim([min(self.tensor[:, 1]), max(self.tensor[:, 1])])
+        ax.set_zlim([min(self.tensor[:, 2]), max(self.tensor[:, 2])])
         ax.set_xlabel("x")
         ax.set_ylabel("y")
         ax.set_zlabel("z")
-
         plt.title(title)
         plt.show()
         plt.close()
 
-
-    def set_tensor(self):
-        for i, x in enumerate(self.nii):
-            for j, y in enumerate(x):
-                for k, z in enumerate(y):
-                    if z == self.num:
-                        self.tensor.append((i, j, k))
-        
-        for tensor in self.tensor:
-            _x, _y, _z = tensor
-            self.X.append(_x)
-            self.Y.append(_y)
-            self.Z.append(_z)
-
-
     def get_cross_section_area(self, point, vector):
-        x0, y0, z0 = point
-        iv, jv, kv = vector
-        d = -1 * (iv * x0 + jv * y0 + kv * z0)
-        equation = lambda _x, _y, _z: abs(iv * _x + jv * _y + kv * _z + d)
-        tx, ty, tz = [], [], []
+        # tensor에서 관심 있는 영역만 선택
+        mask_range = np.all((self.tensor >= (point-INTERVAL) ) & (self.tensor <= (point+INTERVAL)), axis=1)
+        selected_tensor = self.tensor[mask_range]
+        # Main Loop
+        equation = lambda _x, _y, _z: abs(np.dot(vector, [_x, _y, _z]) + np.dot(vector, -np.array(point)))
+        mask_area = np.apply_along_axis(lambda xyz: equation(*xyz), 1, selected_tensor) < RES
+        area = np.sum(mask_area)
+        return area, selected_tensor[mask_area]
 
-        area = 0
-        for x, y, z in self.tensor:
-            if equation(x, y, z) < RES:
-                area += 1
-                tx.append(x)
-                ty.append(y)
-                tz.append(z)
+    def min_area_plane_center(self, point0, vector):
+        lin = np.linspace(-0.5, 0.5, 5)
+        uv = [norm(vector) + np.array((i, j, k)) for i in lin for j in lin for k in lin]
+        uv = np.unique(uv, axis=0)  # 중복 제거
 
-        return area, (tx, ty, tz)
-
-
-    def min_area_plane_center(self, x0, y0, z0, vector):
-        lin = [x for x in np.linspace(-0.5, 0.5, 5)]
-        uv = [add_vector(norm(vector), (i, j, k)) for i in lin for j in lin for k in lin]
-
-        uv = list(set(uv))
-        xin, yin, zin = [], [], []
-        min_area = float('inf')
-
-        for i, j, k in uv:
-            area, p = self.get_cross_section_area((x0, y0, z0), (i, j, k))
-            if area < min_area:
-                min_area = area
-                xin, yin, zin = p
-
-        return get_COM(xin, yin, zin)
-    
+        areas = [self.get_cross_section_area(point0, vec)[0] for vec in uv]
+        min_index = np.argmin(areas)
+        _, min_plane = self.get_cross_section_area(point0, uv[min_index])
+        return np.mean(min_plane, axis=0)
 
     def get_center_planes(self):
-        centerlines = self.get_centerline()     # 중심라인 구하는 부분
-        tx, ty, tz = centerlines
-        centerlines = [(i, j, k) for i, j, k in zip(tx, ty, tz)]    # 계산 형식에 맞게 변경
+        if self.centerline is None:
+            self.get_centerline()
+        self.center_planes = []
+        # smoothed tangent vector
+        for prev_point, curr_point, next_point in zip(self.centerline[:-2], self.centerline[1:-1], self.centerline[2:]):
+            vector1 = curr_point - prev_point
+            vector2 = next_point - curr_point
+            vector = (vector1 + vector2) / 2
+            _, plane = self.get_cross_section_area(curr_point, vector)
+            self.center_planes.append(plane)
 
-        planes = [] # [[[x1, x2, ...], [y1, y2, ...], [z1, z2, ...]], [...], ...]
-
-        for i in range(len(centerlines) - 1):
-            point = centerlines[i]
-            vector = sub_vector(centerlines[i], centerlines[i + 1])
-            _, plane = self.get_cross_section_area(point, vector)
-            planes.append(plane)
-
-        # self.save_planes(planes)
-
-        return planes
-
-
-    def save_planes(self, planes):
-        planes = plane_list_to_tuple(planes)
-        with open("data.json", 'r', encoding="UTF-8") as f:
+    def save_planes(self, filename):
+        planes_as_list = [plane.tolist() for plane in self.center_planes]
+        with open(filename, 'r', encoding="UTF-8") as f:
             temp = json.load(f)
-        with open("data.json", 'w', encoding="UTF-8") as f:
-            temp[str(self.num)] = str(planes)
+        with open(filename, 'w', encoding="UTF-8") as f:
+            temp[str(self.num)] = planes_as_list
             json.dump(temp, f, ensure_ascii=False, indent='\t')
 
-
     def get_centerline(self, interval=1):
-        marked = self.marked_points
-        curr = marked.pop(0)
-        centers = [curr]
+        marked = np.array(self.marked_points)
+        centers = [marked[0]]
+        for curr, xyz in zip(marked[:-1], marked[1:]):
+            vector = xyz - curr
+            centers.append(self.min_area_plane_center(xyz, vector))
+        self.centerline = np.array(centers)
 
-        for i, xyz in enumerate(marked):
-            x, y, z = xyz
-            vector = sub_vector(curr, xyz)
-            centers.append(self.min_area_plane_center(x, y, z, vector))
-            curr = xyz
-
-        # rc = []
-        # for i in range(0, len(centers), interval):
-        #     rc.append(centers[i])
-            
-        # return [center[0] for center in rc], [center[1] for center in rc], [center[2] for center in rc]
-        return [center[0] for center in centers], [center[1] for center in centers], [center[2] for center in centers]
-
-
-def plane_list_to_tuple(planes):
-    tup_list = []
-    for plane in planes:
-        x, y, z = plane
-        tup_list.append([(i, j, k) for i, j, k in zip(x, y, z)])
-    
-    return tup_list
-
-
-def sub_vector(t1, t2):
-    assert len(t1) == 3 and len(t2) == 3
-    t2 = scalar_mul(t2, -1)
-    return add_vector(t1, t2)
-
-def add_vector(t1, t2):
-    assert len(t1) == 3 and len(t2) == 3 ## (x,y,z) 형식만
-    temp = []
-
-    for o1, o2 in zip(t1, t2):
-        temp.append(o1+o2)
-
-    return tuple(temp)
-
-def scalar_mul(v: tuple, k):
-    assert len(v) == 3
-    return k * v[0], k * v[1], k * v[2]
-
-
-def norm(v: tuple):
-    i, j, k = v
-    roots = math.sqrt(i ** 2 + j ** 2 + k ** 2)
+def norm(v: np.ndarray):
+    roots = np.linalg.norm(v)
     if roots == 0:
         return None
-    return i / roots, j / roots, k / roots
-
-
-def get_COM(x, y, z):
-    return sum(x) // len(x), sum(y) // len(y), sum(z) // len(z)
+    return v / roots
