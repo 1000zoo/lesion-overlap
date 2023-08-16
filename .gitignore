@@ -2,3 +2,6 @@ __pycache__/
 test.py
 marked-points/
 
+test/
+*.nii
+data.json
